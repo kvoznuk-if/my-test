@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест на тип темперамента</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            border-radius: 24px;
+            max-width: 700px;
+            width: 100%;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { font-size: 26px; margin-bottom: 8px; color: #1a1a2e; text-align: center; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+        .question-block { margin-bottom: 24px; }
+        .question-text { font-size: 17px; font-weight: 600; margin-bottom: 14px; color: #1a1a2e; }
+        .options { display: flex; flex-direction: column; gap: 10px; }
+        .option-btn {
+            text-align: left;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: #fafafa;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s;
+            color: #333;
+        }
+        .option-btn:hover { border-color: #667eea; background: #f0f4ff; }
+        .option-btn.selected { border-color: #667eea; background: #e8eeff; font-weight: 500; }
+        .progress-bar { height: 8px; background: #eee; border-radius: 4px; margin-bottom: 30px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.3s; border-radius: 4px; }
+        .btn-start, .btn-restart {
+            display: block; width: 100%; padding: 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff; border: none; border-radius: 12px;
+            font-size: 17px; font-weight: 600; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn-start:hover, .btn-restart:hover { transform: scale(1.02); }
+        .result-card { text-align: center; padding: 20px 0; }
+        .result-emoji { font-size: 64px; margin-bottom: 10px; }
+        .result-type { font-size: 32px; font-weight: 700; margin-bottom: 6px; }
+        .result-tagline { color: #666; margin-bottom: 24px; font-size: 15px; }
+        .result-details {
+            text-align: left; background: #f8f9fc; border-radius: 16px;
+            padding: 24px; margin-bottom: 20px; font-size: 14px; line-height: 1.7; color: #333;
+        }
+        .result-details h3 { font-size: 16px; margin: 16px 0 8px; color: #1a1a2e; }
+        .result-details h3:first-child { margin-top: 0; }
+        .result-details ul { padding-left: 20px; margin-bottom: 12px; }
+        .result-details li { margin-bottom: 4px; }
+        .fact-box {
+            background: #eef1ff; border-left: 4px solid #667eea;
+            padding: 12px 16px; border-radius: 8px; margin: 16px 0;
+            font-size: 13px; color: #444; font-style: italic;
+        }
+        .scores-row { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; justify-content: center; }
+        .score-chip { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #eee; color: #555; }
+        .score-chip.winner { background: #667eea; color: #fff; }
+        .hidden { display: none; }
+        .disclaimer { font-size: 11px; color: #999; text-align: center; margin-top: 20px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="start-screen">
+        <h1>🧠 Тест на тип темперамента</h1>
+        <p class="subtitle">Узнай, кто ты: сангвиник, холерик, флегматик или меланхолик</p>
+        <p style="font-size:14px;color:#555;line-height:1.6;margin-bottom:24px;text-align:center;">
+            Тест основан на классической типологии темперамента (Гиппократ → И.П. Павлов) и современных психологических моделях.
+            Отвечай честно, долго не думай — первый ответ обычно самый точный.
+        </p>
+        <button class="btn-start" onclick="startTest()">Начать тест</button>
+    </div>
+
+    <div id="quiz-screen" class="hidden">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div id="question-container"></div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <div id="result-content"></div>
+        <button class="btn-restart" onclick="restart()">Пройти ещё раз</button>
+        <p class="disclaimer">Этот тест — учебный проект. Он не является медицинской или психологической диагностикой.</p>
+    </div>
+</div>
+
+<script>
+// --- ВОПРОСЫ ---
+// Каждый вопрос: текст + 4 варианта, привязанных к типам: S (сангвиник), H (холерик), F (флегматик), M (меланхолик)
+const questions = [
+    { q: "Как ты обычно реагируешь на неожиданную новость (даже плохую)?", opts: [
+        { text: "Быстро переключаюсь, ищу что-то позитивное", type: "S" },
+        { text: "Вспыхиваю, могу наговорить лишнего", type: "H" },
+        { text: "Спокойно, мне нужно время, чтобы осмыслить", type: "F" },
+        { text: "Долго переживаю внутри, могу замкнуться", type: "M" }
+    ]},
+    { q: "Как ты ведёшь себя в новой компании?", opts: [
+        { text: "Легко знакомлюсь, чувствую себя как рыба в воде", type: "S" },
+        { text: "Беру инициативу на себя, быстро завожу разговор", type: "H" },
+        { text: "Молчу, наблюдаю, присматриваюсь", type: "F" },
+        { text: "Чувствую скованность, жду, пока ко мне обратятся", type: "M" }
+    ]},
+    { q: "Как ты относишься к монотонной работе?", opts: [
+        { text: "Быстро скучаю, мне нужно разнообразие", type: "S" },
+        { text: "Раздражаюсь, хочу сделать всё быстро и бросить", type: "H" },
+        { text: "Могу делать долго и спокойно, если надо", type: "F" },
+        { text: "Устаю, но стараюсь доделать, хоть и медленно", type: "M" }
+    ]},
+    { q: "Когда ты злишься, как это выглядит?", opts: [
+        { text: "Быстро вспыхиваю, но быстро отхожу", type: "S" },
+        { text: "Взрываюсь, могу накричать, потом жалею", type: "H" },
+        { text: "Долго терплю, внешне почти не показываю", type: "F" },
+        { text: "Замыкаюсь, обиду ношу внутри долго", type: "M" }
+    ]},
+    { q: "Как ты принимаешь важные решения?", opts: [
+        { text: "Быстро, на интуиции, легко меняю мнение", type: "S" },
+        { text: "Решительно, но могу передумать под влиянием эмоций", type: "H" },
+        { text: "Медленно, взвешенно, не люблю спешки", type: "F" },
+        { text: "Долго сомневаюсь, боюсь ошибиться", type: "M" }
+    ]},
+    { q: "Как у тебя с режимом сна и пробуждения?", opts: [
+        { text: "Засыпаю и просыпаюсь легко, быстро", type: "S" },
+        { text: "Могу не спать допоздна, потом резко отрубаюсь", type: "H" },
+        { text: "Люблю стабильный режим, просыпаюсь тяжело, но ровно", type: "F" },
+        { text: "Часто ворочаюсь, сон чуткий, просыпаюсь разбитым", type: "M" }
+    ]},
+    { q: "Как ты обычно говоришь?", opts: [
+        { text: "Громко, быстро, с жестами и эмоциями", type: "S" },
+        { text: "Страстно, порывисто, могу перебивать", type: "H" },
+        { text: "Спокойно, размеренно, без лишней мимики", type: "F" },
+        { text: "Тихо, с паузами, иногда сбивчиво от волнения", type: "M" }
+    ]},
+    { q: "Что для тебя самое трудное?", opts: [
+        { text: "Долго ждать и не действовать", type: "S" },
+        { text: "Сдерживать свои эмоции", type: "H" },
+        { text: "Быстро переключаться между делами", type: "F" },
+        { text: "Выступать перед большой аудиторией", type: "M" }
+    ]},
+    { q: "Как ты относишься к критике?", opts: [
+        { text: "Спокойно, быстро делаю выводы и иду дальше", type: "S" },
+        { text: "Остро, могу поспорить или обидеться", type: "H" },
+        { text: "Внешне спокойно, но внутри могу задуматься", type: "F" },
+        { text: "Очень болезненно, долго переживаю", type: "M" }
+    ]},
+    { q: "Какое описание тебе ближе?", opts: [
+        { text: "Оптимист, душа компании, легко отношусь к жизни", type: "S" },
+        { text: "Лидер, боец, не люблю проигрывать", type: "H" },
+        { text: "Надёжный, спокойный, уравновешенный", type: "F" },
+        { text: "Глубокий, чувствительный, ценю тишину", type: "M" }
+    ]}
+];
+
+// --- ДАННЫЕ ДЛЯ РЕЗУЛЬТАТОВ ---
+const resultsData = {
+    S: {
+        name: "Сангвиник",
+        emoji: "☀️",
+        tagline: "Живой, общительный, оптимистичный",
+        description: `
+            <h3>🧬 Немного науки</h3>
+            <p>Сангвиник соответствует <strong>сильному, уравновешенному, подвижному</strong> типу нервной системы по И.П. Павлову. Это значит: нервные клетки выдерживают нагрузку, возбуждение и торможение сбалансированы, а переключение между ними происходит быстро [citation:9][citation:13].</p>
+            <h3>📊 Что говорят исследования</h3>
+            <p>В одном исследовании среди студентов сангвиники составили около <strong>34%</strong> по методике Айзенка и <strong>31%</strong> по методике Белова — это один из самых распространённых типов [citation:6].</p>
+            <div class="fact-box">💡 Факт: В античной теории Гиппократа сангвиник ассоциировался с преобладанием крови (sanguis). Хотя сама теория жидкостей не подтвердилась, названия типов и их описания дошли до наших дней [citation:3][citation:10].</div>
+            <h3>✨ Сильные стороны</h3>
+            <ul>
+                <li>Высокая адаптивность и стрессоустойчивость</li>
+                <li>Быстро включается в новую работу</li>
+                <li>Легко находит контакт с людьми</li>
+                <li>Сохраняет оптимизм в сложных ситуациях</li>
+            </ul>
+            <h3>⚠️ Зоны роста</h3>
+            <ul>
+                <li>Может браться за много дел и не доводить до конца</li>
+                <li>Иногда скользит по поверхности, не углубляясь</li>
+                <li>Тяготится однообразием и рутиной</li>
+            </ul>
+            <h3>🤝 С кем комфортнее всего</h3>
+            <p>С сангвиниками и флегматиками. Флегматик даёт стабильность, сангвиник — энергию и лёгкость.</p>
+        `
+    },
+    H: {
+        name: "Холерик",
+        emoji: "🔥",
+        tagline: "Энергичный, страстный, решительный",
+        description: `
+            <h3>🧬 Немного науки</h3>
+            <p>Холерик — это <strong>сильный, неуравновешенный</strong> тип нервной системы с преобладанием возбуждения. Процессы торможения слабее, поэтому реакции быстрые, но могут быть бурными [citation:9][citation:13].</p>
+            <h3>📊 Что говорят исследования</h3>
+            <p>По данным исследований, холерики могут составлять до <strong>40%</strong> среди студентов (методика Айзенка). Это часто связано с высокой социальной активностью и вовлечённостью [citation:6].</p>
+            <div class="fact-box">💡 Факт: В модели Г. Айзенка холерик находится в квадранте «высокая экстраверсия + высокая нейротизм (эмоциональная нестабильность)» [citation:10].</div>
+            <h3>✨ Сильные стороны</h3>
+            <ul>
+                <li>Огромная энергия и работоспособность</li>
+                <li>Быстрота реакции и решительность</li>
+                <li>Лидерские качества, инициативность</li>
+                <li>Способность вести за собой</li>
+            </ul>
+            <h3>⚠️ Зоны роста</h3>
+            <ul>
+                <li>Вспыльчивость, эмоциональные срывы</li>
+                <li>Нетерпимость к критике и недостаткам других</li>
+                <li>Цикличность настроения и работоспособности</li>
+            </ul>
+            <h3>🤝 С кем комфортнее всего</h3>
+            <p>С флегматиками (они гасят импульсы) и меланхоликами (они ценят глубину, а холерик даёт защиту).</p>
+        `
+    },
+    F: {
+        name: "Флегматик",
+        emoji: "🌿",
+        tagline: "Спокойный, надёжный, уравновешенный",
+        description: `
+            <h3>🧬 Немного науки</h3>
+            <p>Флегматик — <strong>сильный, уравновешенный, инертный</strong> тип нервной системы. Сила и баланс есть, но переключение между процессами замедленное. Отсюда спокойствие и основательность [citation:9][citation:13].</p>
+            <h3>📊 Что говорят исследования</h3>
+            <p>По методике Белова флегматики могут составлять до <strong>38%</strong> выборки — это очень распространённый тип, особенно среди людей, склонных к стабильной, системной работе [citation:6].</p>
+            <div class="fact-box">💡 Факт: В модели Кречмера флегматик частично соотносится с пикническим/атлетическим телосложением, а в модели Шелдона — со смесью мезоморфа и эндоморфа [citation:6].</div>
+            <h3>✨ Сильные стороны</h3>
+            <ul>
+                <li>Выдержка и терпение</li>
+                <li>Надёжность, доводит начатое до конца</li>
+                <li>Спокойствие в стрессовых ситуациях</li>
+                <li>Системность и последовательность</li>
+            </ul>
+            <h3>⚠️ Зоны роста</h3>
+            <ul>
+                <li>Медлительность в принятии решений</li>
+                <li>Трудности с быстрой сменой деятельности</li>
+                <li>Может казаться равнодушным или пассивным</li>
+            </ul>
+            <h3>🤝 С кем комфортнее всего</h3>
+            <p>С сангвиниками (добавляют живости) и меланхоликами (ценят тишину и стабильность).</p>
+        `
+    },
+    M: {
+        name: "Меланхолик",
+        emoji: "🌧️",
+        tagline: "Чувствительный, глубокий, вдумчивый",
+        description: `
+            <h3>🧬 Немного науки</h3>
+            <p>Меланхолик — <strong>слабый</strong> тип нервной системы по Павлову. Это не «плохо»: слабая нервная система означает высокую чувствительность к стимулам, глубокую переработку информации и осторожность [citation:9][citation:13].</p>
+            <h3>📊 Что говорят исследования</h3>
+            <p>Меланхолики часто составляют меньшинство в выборках (около <strong>11–15%</strong>), но именно этот тип связан с глубокой рефлексией и вниманием к деталям [citation:6].</p>
+            <div class="fact-box">💡 Факт: В исследованиях меланхоликов иногда связывают с более высокой активацией определённых мозговых систем, отвечающих за обработку эмоциональных стимулов. Это объясняет их чувствительность и глубину переживаний [citation:14].</div>
+            <h3>✨ Сильные стороны</h3>
+            <ul>
+                <li>Глубина чувств и переживаний</li>
+                <li>Внимательность к деталям</li>
+                <li>Способность к эмпатии и пониманию других</li>
+                <li>Осторожность и вдумчивость</li>
+            </ul>
+            <h3>⚠️ Зоны роста</h3>
+            <ul>
+                <li>Склонность к тревоге и самокопанию</li>
+                <li>Болезненная реакция на критику</li>
+                <li>Быстрая утомляемость от шума и суеты</li>
+            </ul>
+            <h3>🤝 С кем комфортнее всего</h3>
+            <p>С флегматиками (дают безопасность и стабильность) и сангвиниками (мягко выводят из «раковины»).</p>
+        `
+    }
+};
+
+// --- ЛОГИКА ---
+let currentQ = 0;
+let scores = { S: 0, H: 0, F: 0, M: 0 };
+
+function startTest() {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('quiz-screen').classList.remove('hidden');
+    currentQ = 0;
+    scores = { S: 0, H: 0, F: 0, M: 0 };
+    renderQuestion();
+}
+
+function renderQuestion() {
+    const q = questions[currentQ];
+    const container = document.getElementById('question-container');
+    const progress = ((currentQ) / questions.length) * 100;
+    document.getElementById('progress-fill').style.width = progress + '%';
+
+    let html = `<div class="question-block">
+        <div class="question-text">${currentQ + 1}. ${q.q}</div>
+        <div class="options">`;
+    q.opts.forEach((opt, idx) => {
+        html += `<button class="option-btn" onclick="answer('${opt.type}', this)">${opt.text}</button>`;
+    });
+    html += `</div></div>`;
+    container.innerHTML = html;
+}
+
+function answer(type, btn) {
+    // визуальный выбор
+    document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    scores[type]++;
+
+    // небольшая задержка для визуального отклика
+    setTimeout(() => {
+        currentQ++;
+        if (currentQ < questions.length) {
+            renderQuestion();
+        } else {
+            showResult();
+        }
+    }, 180);
+}
+
+function showResult() {
+    document.getElementById('quiz-screen').classList.add('hidden');
+    document.getElementById('result-screen').classList.remove('hidden');
+
+    // определяем победителя (макс балл). При равенстве приоритет: S > H > F > M
+    let winner = 'S';
+    let maxScore = scores.S;
+    const order = ['H', 'F', 'M']; // S уже проверен
+    order.forEach(t => {
+        if (scores[t] > maxScore) { maxScore = scores[t]; winner = t; }
+    });
+
+    const data = resultsData[winner];
+    const total = scores.S + scores.H + scores.F + scores.M;
+
+    let chipsHtml = '<div class="scores-row">';
+    ['S', 'H', 'F', 'M'].forEach(t => {
+        const names = { S: 'Сангв.', H: 'Холер.', F: 'Флегм.', M: 'Меланх.' };
+        const cls = t === winner ? 'score-chip winner' : 'score-chip';
+        chipsHtml += `<span class="${cls}">${names[t]}: ${scores[t]}</span>`;
+    });
+    chipsHtml += '</div>';
+
+    document.getElementById('result-content').innerHTML = `
+        <div class="result-card">
+            <div class="result-emoji">${data.emoji}</div>
+            <div class="result-type">${data.name}</div>
+            <div class="result-tagline">${data.tagline}</div>
+            ${chipsHtml}
+            <div class="result-details">
+                ${data.description}
+            </div>
+        </div>
+    `;
+
+    // прокрутка наверх
+    document.querySelector('.container').scrollIntoView({ behavior: 'smooth' });
+}
+
+function restart() {
+    document.getElementById('result-screen').classList.add('hidden');
+    document.getElementById('start-screen').classList.remove('hidden');
+    document.getElementById('progress-fill').style.width = '0%';
+    currentQ = 0;
+    scores = { S: 0, H: 0, F: 0, M: 0 };
+}
+</script>
+</body>
+</html>
